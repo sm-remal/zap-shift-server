@@ -29,10 +29,19 @@ async function run() {
 
     // ========== MAIN FUNCTION ========== //
 
+    const db = client.db("zap_shift_db");
+    const parcelCollection = db.collection("parcels");
 
+    // ========== Parcel Related API ======== //
+    app.get("/parcels", async(req, res) => {
 
+    })
 
-
+    app.post("/parcels", async(req, res) => {
+        const parcel = req.body;
+        const result = await parcelCollection.insertOne(parcel);
+        res.send(result);
+    })
 
 
     await client.db("admin").command({ ping: 1 });
