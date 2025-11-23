@@ -1,7 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config()
-// Initialize Express app
+const { MongoClient, ServerApiVersion } = require('mongodb');
+// ========= Initialize Express app ========= //
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -9,14 +10,47 @@ const port = process.env.PORT || 3000;
 app.use(cors());              
 app.use(express.json()); 
 
+// ========== MONGODB CONNECTION ========== //
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@clustersm.e6uuj86.mongodb.net/?appName=ClusterSM`;
 
-// Root route for testing server
+// ========== Create MongoDB client instance ========= //
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  }
+});
+
+// ========= Connection set function ========== //
+async function run() {
+  try {
+    await client.connect();
+
+    // ========== MAIN FUNCTION ========== //
+
+
+
+
+
+
+
+    await client.db("admin").command({ ping: 1 });
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+  } finally {
+    
+    // await client.close();
+  }
+}
+run().catch(console.dir);
+
+// ========== Root route for testing server ========== //
 app.get("/", (req, res) => {
     res.send("Zap Shift Server is going on");
 })
 
 
-// ===================== SERVER LISTEN ===================== //
+// ========== SERVER LISTEN ========== //
 app.listen(port, () => {
     console.log(`Zap Shift Server at port: ${port}`)
 });
