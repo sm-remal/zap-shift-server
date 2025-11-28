@@ -119,6 +119,23 @@ async function run() {
             res.send(result);
         })
 
+
+        app.patch("/riders/:id", verifyFirebaseToken, async(req, res) => {
+            const status = req.body.status;
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    status: status
+                }
+            }
+            const result = await ridersCollection.updateOne(query, updateDoc);
+            res.send(result);
+        })
+
+
+
+        
         // ========== Parcel Related API ======== //
         // Get All Data From Database
 
