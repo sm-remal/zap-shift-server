@@ -76,6 +76,7 @@ async function run() {
         const userCollection = db.collection("users");
         const parcelCollection = db.collection("parcels");
         const paymentCollection = db.collection("payments");
+        const ridersCollection = db.collection("riders");
 
 
         // ========== User Related API ========== //
@@ -91,6 +92,30 @@ async function run() {
             }
 
             const result = await userCollection.insertOne(user);
+            res.send(result);
+        })
+
+
+        // ========== Riders Related API ========== //
+
+        app.get("/riders", async(req, res) => {
+            const query = {};
+            if(req.query.status){
+                query.status = req.query.status;
+            }
+            const cursor = ridersCollection.find(query);
+            const result = await cursor.toArray();
+            res.send(result);
+        })
+
+
+        app.post("/riders", async(req, res) => {
+            const rider = req.body;
+
+            rider.status = "pending";
+            rider.createdAt = new Date();
+
+            const result = await ridersCollection.insertOne(rider);
             res.send(result);
         })
 
