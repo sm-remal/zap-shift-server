@@ -10,7 +10,7 @@ const port = process.env.PORT || 3000;
 
 // ======== From Firebase SDK ========= //
 const admin = require("firebase-admin");
-const serviceAccount = require("./zap-shift-client-firebase-adminsdk.json");
+const serviceAccount = require("./zap-shift-firebase-adminsdk.json");
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
