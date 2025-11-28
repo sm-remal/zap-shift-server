@@ -73,8 +73,26 @@ async function run() {
         // ========== MAIN FUNCTION ========== //
 
         const db = client.db("zap_shift_db");
+        const userCollection = db.collection("users");
         const parcelCollection = db.collection("parcels");
         const paymentCollection = db.collection("payments");
+
+
+        // ========== User Related API ========== //
+        app.post("/users", async (req, res) => {
+            const user = req.body;
+            user.role = "user";
+            user.createdAt = new Date();
+
+            const email = user.email;
+            const userExist = await userCollection.findOne({ email })
+            if(userExist){
+                return res.send({ message: "user exist" })
+            }
+
+            const result = await userCollection.insertOne(user);
+            res.send(result);
+        })
 
         // ========== Parcel Related API ======== //
         // Get All Data From Database
@@ -241,11 +259,11 @@ async function run() {
                 query.customerEmail = email;
 
                 // Check email address
-                if(email !== req.token_email){
-                    return res.status(403).send({message: "forbidden access"})
+                if (email !== req.token_email) {
+                    return res.status(403).send({ message: "forbidden access" })
                 }
             }
-            const cursor = paymentCollection.find(query);
+            const cursor = paymentCollection.find(query).sort({ paidAt: -1 });
             const result = await cursor.toArray();
             res.send(result);
         })
