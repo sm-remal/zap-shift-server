@@ -3,22 +3,55 @@ const cors = require('cors');
 require('dotenv').config()
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const stripe = require('stripe')(process.env.STRIPE_SECRET);
+
 // ========= Initialize Express app ========= //
 const app = express();
 const port = process.env.PORT || 3000;
 
+// ======== From Firebase SDK ========= //
+const admin = require("firebase-admin");
+const serviceAccount = require("./zap-shift-client-firebase-adminsdk.json");
+
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+});
+
 
 // ========== Generate Tracking Id ========== //
-  function generateTrackingId() {
-  const time = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `PC-${time}-${random}`;
+function generateTrackingId() {
+    const time = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `PC-${time}-${random}`;
 }
 
 
 
 app.use(cors());
 app.use(express.json());
+
+
+// ======== MiddleWare for Verification ======== //
+const verifyFirebaseToken = async (req, res, next) => {
+    // console.log("Firebase-Token: ", req.headers.authorization);
+    if (!req.headers.authorization) {
+        return res.status(401).send({ message: "unauthorized access" })
+    }
+    const token = req.headers.authorization.split(" ")[1];
+    if (!token) {
+        return res.status(401).send({ message: "unauthorized access" })
+    }
+    try {
+        const userInfo = await admin.auth().verifyIdToken(token);
+        req.token_email = userInfo.email;
+        console.log("userInfo: ", userInfo)
+        next();
+    }
+    catch {
+        return res.status(401).send({ message: 'unauthorized access' })
+    }
+}
+
+
 
 // ========== MONGODB CONNECTION ========== //
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@clustersm.e6uuj86.mongodb.net/?appName=ClusterSM`;
@@ -136,7 +169,7 @@ async function run() {
 
 
         // --------- Part Two: Updating the Database After the Payment Is Successful ---------- //
-        app.patch("/payment-success", async(req, res) => {
+        app.patch("/payment-success", async (req, res) => {
             const sessionId = req.query.session_id;
             // console.log("session id", sessionId);
             const session = await stripe.checkout.sessions.retrieve(sessionId)
@@ -147,9 +180,9 @@ async function run() {
 
             const paymentExist = await paymentCollection.findOne(query);
             console.log(paymentExist)
-            if(paymentExist){
+            if (paymentExist) {
                 return res.send({
-                    message: "already exist", 
+                    message: "already exist",
                     transactionId,
                     trackingId: paymentExist.trackingId,
                 })
@@ -157,7 +190,7 @@ async function run() {
 
             const trackingId = generateTrackingId();
 
-            if(session.payment_status === "paid"){
+            if (session.payment_status === "paid") {
                 const id = session.metadata.parcelId;
                 const query = { _id: new ObjectId(id) }
                 const update = {
@@ -181,14 +214,14 @@ async function run() {
                     trackingId: trackingId,
                 }
 
-                if(session.payment_status === "paid"){
+                if (session.payment_status === "paid") {
                     const resultPayment = await paymentCollection.insertOne(payment);
-                    res.send({ 
-                        success: true, 
-                        modifyParcel: result, 
+                    res.send({
+                        success: true,
+                        modifyParcel: result,
                         trackingId: trackingId,
                         transactionId: session.payment_intent,
-                        paymentInfo: resultPayment, 
+                        paymentInfo: resultPayment,
                     })
                 }
 
@@ -200,12 +233,17 @@ async function run() {
 
 
         // Payment History Show in Client
-        app.get("/payments", async(req, res) => {
+        app.get("/payments", verifyFirebaseToken, async (req, res) => {
             const email = req.query.email;
             const query = {};
 
-            if(email){
+            if (email) {
                 query.customerEmail = email;
+
+                // Check email address
+                if(email !== req.token_email){
+                    return res.status(403).send({message: "forbidden access"})
+                }
             }
             const cursor = paymentCollection.find(query);
             const result = await cursor.toArray();
