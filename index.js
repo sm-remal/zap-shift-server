@@ -103,6 +103,7 @@ async function run() {
 
         // =============== Payment Related API ============= //
 
+        //---------- Part One: Creating a Checkout Session (Starting Stripe Payment)---------- //
         app.post('/create-checkout-session', async (req, res) => {
             const paymentInfo = req.body;
             const amount = parseInt(paymentInfo.cost) * 100;
@@ -134,12 +135,25 @@ async function run() {
         });
 
 
-        // info
+        // --------- Part Two: Updating the Database After the Payment Is Successful ---------- //
         app.patch("/payment-success", async(req, res) => {
             const sessionId = req.query.session_id;
             // console.log("session id", sessionId);
             const session = await stripe.checkout.sessions.retrieve(sessionId)
-            console.log("sessions retrieve", session);
+            // console.log("sessions retrieve", session);
+
+            const transactionId = session.payment_intent;
+            const query = { transactionId: transactionId }
+
+            const paymentExist = await paymentCollection.findOne(query);
+            console.log(paymentExist)
+            if(paymentExist){
+                return res.send({
+                    message: "already exist", 
+                    transactionId,
+                    trackingId: paymentExist.trackingId,
+                })
+            }
 
             const trackingId = generateTrackingId();
 
@@ -164,6 +178,7 @@ async function run() {
                     transactionId: session.payment_intent,
                     paymentStatus: session.payment_status,
                     paidAt: new Date(),
+                    trackingId: trackingId,
                 }
 
                 if(session.payment_status === "paid"){
@@ -184,7 +199,18 @@ async function run() {
         })
 
 
+        // Payment History Show in Client
+        app.get("/payments", async(req, res) => {
+            const email = req.query.email;
+            const query = {};
 
+            if(email){
+                query.customerEmail = email;
+            }
+            const cursor = paymentCollection.find(query);
+            const result = await cursor.toArray();
+            res.send(result);
+        })
 
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
