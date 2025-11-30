@@ -80,6 +80,20 @@ async function run() {
 
 
         // ========== User Related API ========== //
+        app.get("/users", verifyFirebaseToken, async(req, res) => {
+            const cursor =  userCollection.find();
+            const result = await cursor.toArray();
+            res.send(result);
+        })
+
+
+        app.get("users/:email/role", async(req, res) => {
+            const email = req.params.email;
+            const query = {email};
+            const user = await userCollection.findOne(query);
+            res.send({role: user?.role || "user"});
+        })
+
         app.post("/users", async (req, res) => {
             const user = req.body;
             user.role = "user";
@@ -92,6 +106,21 @@ async function run() {
             }
 
             const result = await userCollection.insertOne(user);
+            res.send(result);
+        })
+
+
+        // Patch for Admin
+        app.patch("/users/:id", async(req, res) => {
+            const id = req.params.id;
+            const roleInfo = req.body;
+            const query = { _id: new ObjectId(id) };
+            const updatedDoc = {
+                $set : {
+                    role: roleInfo.role,
+                }
+            }
+            const result = await userCollection.updateOne(query, updatedDoc);
             res.send(result);
         })
 
