@@ -82,41 +82,41 @@ async function run() {
         // ========== Middle-Ware with Database Access ========== //
         // Muss be use After verifyFirebaseToken middleware
 
-        const verifyAdmin = async(req, res, next) => {
+        const verifyAdmin = async (req, res, next) => {
             const email = req.token_email;
-            const query = {email};
+            const query = { email };
             const user = await userCollection.findOne(query);
 
-            if( !user || user.role !== "admin" ){
-                return res.status(403).send({message: "Forbidden Access"});
+            if (!user || user.role !== "admin") {
+                return res.status(403).send({ message: "Forbidden Access" });
             }
-            
+
             next()
         }
 
 
         // ========== User Related API ========== //
-        app.get("/users", verifyFirebaseToken, async(req, res) => {
+        app.get("/users", verifyFirebaseToken, async (req, res) => {
             const searchText = req.query.searchText;
             const query = {};
-            if(searchText){
+            if (searchText) {
                 // query.displayName = {$regex: searchText, $options: "i"};
                 query.$or = [
-                    {displayName : {$regex: searchText, $options: "i"}},
-                    {email : {$regex: searchText, $options: "i"}},
+                    { displayName: { $regex: searchText, $options: "i" } },
+                    { email: { $regex: searchText, $options: "i" } },
                 ]
             }
-            const cursor =  userCollection.find(query).sort({createdAt: -1}).limit(5);
+            const cursor = userCollection.find(query).sort({ createdAt: -1 }).limit(5);
             const result = await cursor.toArray();
             res.send(result);
         })
 
 
-        app.get("/users/:email/role", async(req, res) => {
+        app.get("/users/:email/role", async (req, res) => {
             const email = req.params.email;
-            const query = {email};
+            const query = { email };
             const user = await userCollection.findOne(query);
-            res.send({role: user?.role || "user"});
+            res.send({ role: user?.role || "user" });
         })
 
         app.post("/users", async (req, res) => {
@@ -126,7 +126,7 @@ async function run() {
 
             const email = user.email;
             const userExist = await userCollection.findOne({ email })
-            if(userExist){
+            if (userExist) {
                 return res.send({ message: "user exist" })
             }
 
@@ -136,12 +136,12 @@ async function run() {
 
 
         // Patch for Admin
-        app.patch("/users/:id/role", verifyFirebaseToken, verifyAdmin, async(req, res) => {
+        app.patch("/users/:id/role", verifyFirebaseToken, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const roleInfo = req.body;
             const query = { _id: new ObjectId(id) };
             const updatedDoc = {
-                $set : {
+                $set: {
                     role: roleInfo.role,
                 }
             }
@@ -152,10 +152,17 @@ async function run() {
 
         // ========== Riders Related API ========== //
 
-        app.get("/riders", async(req, res) => {
+        app.get("/riders", async (req, res) => {
+            const {status, district, workStatus} = req.query;
             const query = {};
-            if(req.query.status){
-                query.status = req.query.status;
+            if (status) {
+                query.status = status;
+            }
+            if(district){
+                query.district = district;
+            }
+            if(workStatus){
+                query.workStatus = workStatus; 
             }
             const cursor = ridersCollection.find(query);
             const result = await cursor.toArray();
@@ -163,7 +170,7 @@ async function run() {
         })
 
 
-        app.post("/riders", async(req, res) => {
+        app.post("/riders", async (req, res) => {
             const rider = req.body;
 
             rider.status = "pending";
@@ -174,25 +181,26 @@ async function run() {
         })
 
 
-        app.patch("/riders/:id", verifyFirebaseToken, verifyAdmin, async(req, res) => {
+        app.patch("/riders/:id", verifyFirebaseToken, verifyAdmin, async (req, res) => {
             const status = req.body.status;
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const updateDoc = {
                 $set: {
-                    status: status
+                    status: status,
+                    workStatus: "available"
                 }
             }
             const result = await ridersCollection.updateOne(query, updateDoc);
 
-            if(status === "Approved"){
+            if (status === "Approved") {
                 const email = req.body.email;
-                const userQuery = {email};
+                const userQuery = { email };
                 const updateUser = {
                     $set: {
                         role: "rider",
                     }
-                } 
+                }
                 const userResult = await userCollection.updateOne(userQuery, updateUser);
             }
 
@@ -202,7 +210,7 @@ async function run() {
 
 
 
-        
+
         // ========== Parcel Related API ======== //
         // Get All Data From Database
 
@@ -214,23 +222,53 @@ async function run() {
         //     res.send(result);
         // })
 
-        // Get API
+
+
+
+
+
+
+
+
+        // // Get API
+        // app.get("/parcels", async (req, res) => {
+        //     const query = {}
+        //     const { email, deliveryStatue } = req.query;
+        //     // parcels?email=""&
+        //     if (email) {
+        //         query.senderEmail = email;
+        //     }
+        //     if(deliveryStatue){
+        //         query.deliveryStatue = deliveryStatue;
+        //     }
+        //     const options = { sort: { createdAt: -1 } }
+
+        //     const cursor = parcelCollection.find(query, options);
+        //     const result = await cursor.toArray();
+        //     res.send(result);
+        // })
+
+
         app.get("/parcels", async (req, res) => {
-            const query = {}
-            const { email, deliveryStatue } = req.query;
-            // parcels?email=""&
+            const query = {};
+            const { email, deliveryStatus } = req.query;
+
             if (email) {
                 query.senderEmail = email;
             }
-            if(deliveryStatue){
-                query.deliveryStatue = deliveryStatue;
+            if (deliveryStatus) {
+                query.deliveryStatus = deliveryStatus;
             }
-            const options = { sort: { createdAt: -1 } }
 
+            const options = { sort: { createdAt: -1 } }
             const cursor = parcelCollection.find(query, options);
             const result = await cursor.toArray();
             res.send(result);
-        })
+        });
+
+
+
+
 
         // Get Specific Id
         app.get("/parcels/:id", async (req, res) => {
